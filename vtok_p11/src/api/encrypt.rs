@@ -3,7 +3,7 @@
 
 use super::util::copy_data_to_ck_out_slice;
 use crate::backend::Mechanism;
-use crate::crypto::OpCtxState;
+use crate::bridge::context::OpCtxState;
 use crate::pkcs11;
 use crate::util::ckraw::CkRawMechanism;
 use crate::Error;

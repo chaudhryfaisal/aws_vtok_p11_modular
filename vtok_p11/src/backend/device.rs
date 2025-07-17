@@ -9,6 +9,7 @@ use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 
 use super::{Session, Slot, Token};
+use crate::bridge::SyncCryptoBackend;
 use crate::defs;
 use crate::pkcs11;
 use crate::{Error, Result};
@@ -22,10 +23,11 @@ pub struct Device {
     session_slot_map: HashMap<pkcs11::CK_SESSION_HANDLE, pkcs11::CK_SLOT_ID>,
     next_session_handle: pkcs11::CK_SESSION_HANDLE,
     config_update_time: SystemTime,
+    crypto_backend: Arc<SyncCryptoBackend>,
 }
 
 impl Device {
-    pub fn new() -> Result<Self> {
+    pub fn new(crypto_backend: Arc<SyncCryptoBackend>) -> Result<Self> {
         let config = Config::load_ro().map_err(|_| Error::GeneralError)?;
         let config_update_time = Config::modification_time().map_err(|_| Error::GeneralError)?;
 
@@ -35,7 +37,7 @@ impl Device {
                 None => Slot::new(slot_id as pkcs11::CK_SLOT_ID),
                 Some(token_config) => Slot::new_with_token(
                     slot_id as pkcs11::CK_SLOT_ID,
-                    Token::from_config(slot_id as pkcs11::CK_SLOT_ID, &token_config)
+                    Token::from_config(slot_id as pkcs11::CK_SLOT_ID, &token_config, crypto_backend.clone())
                         .map_err(Error::TokenError)?,
                 ),
             });
@@ -46,7 +48,13 @@ impl Device {
             session_slot_map: HashMap::new(),
             next_session_handle: 1,
             config_update_time,
+            crypto_backend,
         })
+    }
+
+    /// Get a reference to the crypto backend
+    pub fn crypto_backend(&self) -> &Arc<SyncCryptoBackend> {
+        &self.crypto_backend
     }
 
     pub fn ck_info(&self) -> pkcs11::CK_INFO {
@@ -159,7 +167,7 @@ impl Device {
                 // A new token is available in the database.
                 (Some(new_token_config), None) => {
                     if let Ok(new_token) =
-                        Token::from_config(slot_id as pkcs11::CK_SLOT_ID, &new_token_config)
+                        Token::from_config(slot_id as pkcs11::CK_SLOT_ID, &new_token_config, self.crypto_backend.clone())
                     {
                         Slot::new_with_token(slot_id as pkcs11::CK_SLOT_ID, new_token);
                     } else {

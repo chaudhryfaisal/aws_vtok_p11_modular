@@ -1,0 +1,55 @@
+[package]
+name = "pkcs11_aws_lc"
+version = "0.1.0"
+authors = ["The AWS Nitro Enclaves Team <aws-nitro-enclaves-devel@amazon.com>"]
+edition = "2021"
+description = "Complete PKCS#11 provider with AWS-LC cryptographic backend"
+license = "Apache-2.0"
+repository = "https://github.com/aws/aws-nitro-enclaves-sdk-c"
+keywords = ["pkcs11", "cryptography", "aws-lc", "nitro", "enclaves"]
+categories = ["cryptography", "api-bindings"]
+
+[lib]
+name = "pkcs11_aws_lc"
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "info"
+path = "src/bin/info.rs"
+
+[dependencies]
+# Core vtok dependencies
+vtok_p11 = { path = "../vtok_p11" }
+vtok_backend = { path = "../vtok_backend" }
+vtok_common = { path = "../vtok_common" }
+
+# AWS-LC cryptographic library
+aws-lc-rs = "1.8"
+
+# Standard dependencies
+libc = "0.2"
+lazy_static = "1.4.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.0", features = ["rt", "rt-multi-thread", "macros"] }
+log = { version = "0.4.20", features = ["std"] }
+env_logger = "0.10"
+
+# Additional crypto utilities
+sha2 = "0.10"
+rand = "0.8"
+thiserror = "1.0"
+clap = { version = "4.0", features = ["derive"] }
+
+[dev-dependencies]
+tokio-test = "0.4"
+tempfile = "3.0"
+tokio = { version = "1.0", features = ["rt", "rt-multi-thread", "macros", "test-util"] }
+
+[features]
+default = ["static-linking"]
+static-linking = []
+dynamic-linking = []
+
+[build-dependencies]
+# No additional build dependencies needed beyond what's in build.rs

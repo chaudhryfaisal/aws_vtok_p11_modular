@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::backend::Mechanism;
-use crate::crypto::OpCtxState;
+use crate::bridge::context::OpCtxState;
 use crate::pkcs11;
 use crate::util::ckraw::CkRawMechanism;
 use crate::Error;

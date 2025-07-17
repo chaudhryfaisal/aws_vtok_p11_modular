@@ -141,6 +141,10 @@ pub enum BackendError {
     /// Internal error (should not happen in normal operation)
     #[error("Internal error: {0}")]
     Internal(String),
+
+    /// Mock error for testing purposes
+    #[error("Mock error: {0}")]
+    MockError(String),
 }
 
 impl BackendError {
@@ -197,6 +201,11 @@ impl BackendError {
     /// Create a new internal error
     pub fn internal(msg: impl Into<String>) -> Self {
         Self::Internal(msg.into())
+    }
+
+    /// Create a new mock error (for testing)
+    pub fn mock_error(msg: impl Into<String>) -> Self {
+        Self::MockError(msg.into())
     }
 }
 

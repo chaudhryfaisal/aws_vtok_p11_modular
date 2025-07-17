@@ -11,11 +11,16 @@ extern crate vtok_common;
 #[macro_use]
 mod util;
 mod api;
+mod aws_lc_backend;
 mod backend;
-mod crypto;
+mod bridge;
+mod crypto_compat;
 mod pkcs11;
 
-use crate::crypto::Error as CryptoError;
+// Re-export crypto_compat as crypto for compatibility
+use crypto_compat as crypto;
+
+use crate::bridge::CryptoError;
 use backend::token::Error as TokenError;
 
 /// Device, slot and token capabilities and information

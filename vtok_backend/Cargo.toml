@@ -13,10 +13,13 @@ serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
 tokio = { version = "1.0", features = ["io-util"], optional = true }
 vtok_common = { path = "../vtok_common" }
+aws-lc-rs = { version = "1.8", optional = true }
+sha2 = { version = "0.10", optional = true }
 
 [features]
 default = []
 async-io = ["tokio"]
+aws-lc = ["aws-lc-rs", "sha2"]
 
 [dev-dependencies]
 tokio = { version = "1.0", features = ["full"] }

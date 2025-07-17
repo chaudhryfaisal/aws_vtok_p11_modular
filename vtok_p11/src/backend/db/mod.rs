@@ -3,7 +3,8 @@
 
 use vtok_common::config;
 
-use crate::crypto;
+use crate::bridge;
+use crate::crypto_compat as crypto;
 use crate::defs;
 use crate::pkcs11;
 

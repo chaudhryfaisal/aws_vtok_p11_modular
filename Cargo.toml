@@ -2,8 +2,84 @@
 # SPDX-License-Identifier: Apache-2.0
 
 [workspace]
-members = ["vtok_common", "vtok_p11", "vtok_backend"]
-# default-members = ["src/vtok_common", "src/vtok_p11",]
+members = [
+    "vtok_common",
+    "vtok_p11",
+    "vtok_backend",
+    "pkcs11_aws_lc",
+    "pkcs11_mock"
+]
+default-members = ["pkcs11_aws_lc", "pkcs11_mock"]
+resolver = "2"
 
-# [profile.release]
-# codegen-units=1
+[workspace.package]
+version = "0.1.0"
+authors = ["AWS vTok Team <aws-nitro-enclaves-devel@amazon.com>"]
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/aws/aws-vtok-p11-modular"
+homepage = "https://github.com/aws/aws-vtok-p11-modular"
+documentation = "https://docs.rs/vtok_backend"
+keywords = ["pkcs11", "cryptography", "nitro", "enclaves", "modular"]
+categories = ["cryptography", "api-bindings"]
+
+[workspace.dependencies]
+# Core vtok crates
+vtok_common = { path = "vtok_common" }
+vtok_backend = { path = "vtok_backend" }
+vtok_p11 = { path = "vtok_p11" }
+
+# Cryptographic libraries
+aws-lc-rs = "1.8"
+sha2 = "0.10"
+
+# Standard dependencies
+libc = "0.2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.0", features = ["rt", "rt-multi-thread"] }
+log = { version = "0.4.20", features = ["std"] }
+thiserror = "1.0"
+
+# Development and utility dependencies
+lazy_static = "1.4.0"
+env_logger = "0.10"
+rand = "0.8"
+clap = { version = "4.0", features = ["derive"] }
+uuid = { version = "1.0", features = ["v4"] }
+
+# Test dependencies
+tokio-test = "0.4"
+tempfile = "3.0"
+rand_chacha = "0.3"
+
+[profile.release]
+codegen-units = 1
+lto = true
+panic = "abort"
+strip = true
+opt-level = 3
+
+[profile.dev]
+debug = true
+opt-level = 0
+
+[profile.test]
+debug = true
+opt-level = 1
+
+# Profile for benchmarking
+[profile.bench]
+debug = false
+opt-level = 3
+lto = true
+codegen-units = 1
+
+# Profile for size optimization
+[profile.release-small]
+inherits = "release"
+opt-level = "z"
+strip = true
+lto = true
+codegen-units = 1
+panic = "abort"

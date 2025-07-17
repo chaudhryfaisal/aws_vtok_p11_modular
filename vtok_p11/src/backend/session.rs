@@ -3,13 +3,15 @@
 
 use std::cmp;
 
+use std::sync::Arc;
+
 use super::db::{Db, Object, ObjectHandle, ObjectKind};
 use super::Mechanism;
-use crate::crypto;
-use crate::crypto::{
-    DecryptCtx, DigestCtx, DigestSignCtx, DigestVerifyCtx, DirectDecryptCtx, DirectEncryptCtx,
-    DirectSignCtx, DirectVerifyCtx, EncryptCtx, SignCtx, VerifyCtx,
+use crate::bridge::{
+    CryptoBridge, BridgeDigestContext, BridgeSignContext, BridgeVerifyContext,
+    SignCtx, VerifyCtx, EncryptCtx, DecryptCtx, DigestCtx, SyncCryptoBackend,
 };
+use crate::bridge::crypto::DirectDecryptCtx;
 use crate::pkcs11;
 use crate::util::CkRawAttrTemplate;
 use crate::{Error, Result};
@@ -62,8 +64,9 @@ pub struct Session {
     slot_id: pkcs11::CK_SLOT_ID,
     state: SessionState,
     db: Db,
+    crypto_bridge: CryptoBridge,
     enum_ctx: Option<EnumCtx>,
-    digest_ctx: Option<DigestCtx>,
+    digest_ctx: Option<BridgeDigestContext>,
     sign_ctx: Option<Box<dyn SignCtx>>,
     verify_ctx: Option<Box<dyn VerifyCtx>>,
     decrypt_ctx: Option<Box<dyn DecryptCtx>>,
@@ -71,11 +74,13 @@ pub struct Session {
 }
 
 impl Session {
-    pub fn new(slot_id: pkcs11::CK_SLOT_ID, db: Db, state: SessionState) -> Self {
+    pub fn new(slot_id: pkcs11::CK_SLOT_ID, db: Db, state: SessionState, crypto_backend: Arc<SyncCryptoBackend>) -> Self {
+        let crypto_bridge = CryptoBridge::new(crypto_backend);
         Self {
             slot_id,
             state,
             db,
+            crypto_bridge,
             enum_ctx: None,
             digest_ctx: None,
             sign_ctx: None,
@@ -152,23 +157,23 @@ impl Session {
     /// Initialize a digest context for a digest operation
     pub fn digest_init(&mut self, mech_type: pkcs11::CK_MECHANISM_TYPE) -> Result<()> {
         self.digest_ctx = Some(
-            DigestCtx::new(mech_type).map_err(|_| Error::CkError(pkcs11::CKR_MECHANISM_INVALID))?,
+            self.crypto_bridge.create_digest_context(mech_type)?
         );
         Ok(())
     }
 
-    pub fn digest_ctx(&mut self) -> &mut Option<crypto::DigestCtx> {
+    pub fn digest_ctx(&mut self) -> &mut Option<BridgeDigestContext> {
         &mut self.digest_ctx
     }
 
     /// Initialize a signing context for a signing operation
     pub fn sign_init(&mut self, mech: &Mechanism, key_handle: ObjectHandle) -> Result<()> {
         self.check_user_logged_in()?;
-        let pkey = self.private_key_for_mech(mech, key_handle)?;
+        let key_obj = self.db.object(key_handle).ok_or(Error::KeyHandleInvalid)?;
         self.sign_ctx = Some(if mech.is_multipart() {
-            Box::new(DigestSignCtx::new(mech, pkey).map_err(Error::CryptoError)?)
+            Box::new(self.crypto_bridge.create_digest_sign_context(mech, key_obj)?)
         } else {
-            Box::new(DirectSignCtx::new(mech, pkey).map_err(Error::CryptoError)?)
+            Box::new(self.crypto_bridge.create_direct_sign_context(mech, key_obj)?)
         });
         Ok(())
     }
@@ -180,11 +185,11 @@ impl Session {
     /// Initialize a verification context for a verification operation
     pub fn verify_init(&mut self, mech: &Mechanism, key_handle: ObjectHandle) -> Result<()> {
         self.check_user_logged_in()?;
-        let pkey = self.public_key_for_mech(mech, key_handle)?;
+        let key_obj = self.db.object(key_handle).ok_or(Error::KeyHandleInvalid)?;
         self.verify_ctx = Some(if mech.is_multipart() {
-            Box::new(DigestVerifyCtx::new(mech, pkey).map_err(Error::CryptoError)?)
+            Box::new(self.crypto_bridge.create_digest_verify_context(mech, key_obj)?)
         } else {
-            Box::new(DirectVerifyCtx::new(mech, pkey).map_err(Error::CryptoError)?)
+            Box::new(self.crypto_bridge.create_direct_verify_context(mech, key_obj)?)
         });
         Ok(())
     }
@@ -196,11 +201,12 @@ impl Session {
     /// Initialize an encryption context for an encryption operation
     pub fn encrypt_init(&mut self, mech: &Mechanism, key_handle: ObjectHandle) -> Result<()> {
         self.check_user_logged_in()?;
-        let pkey = self.public_key_for_mech(mech, key_handle)?;
+        let key_obj = self.db.object(key_handle).ok_or(Error::KeyHandleInvalid)?;
+        let key = crate::bridge::key_for_mechanism(mech, key_obj, false)?;
         self.encrypt_ctx = Some(if mech.is_multipart() {
             return Err(Error::MechanismInvalid);
         } else {
-            Box::new(DirectEncryptCtx::new(mech, pkey).map_err(Error::CryptoError)?)
+            Box::new(crate::bridge::crypto::DirectEncryptCtx::new(mech, key).map_err(Error::CryptoError)?)
         });
         Ok(())
     }
@@ -212,11 +218,12 @@ impl Session {
     /// Initialize an decryption context for a decryption operation
     pub fn decrypt_init(&mut self, mech: &Mechanism, key_handle: ObjectHandle) -> Result<()> {
         self.check_user_logged_in()?;
-        let pkey = self.private_key_for_mech(mech, key_handle)?;
+        let key_obj = self.db.object(key_handle).ok_or(Error::KeyHandleInvalid)?;
+        let key = crate::bridge::key_for_mechanism(mech, key_obj, true)?; // true for private key
         self.decrypt_ctx = Some(if mech.is_multipart() {
             return Err(Error::MechanismInvalid);
         } else {
-            Box::new(DirectDecryptCtx::new(mech, pkey).map_err(Error::CryptoError)?)
+            Box::new(crate::bridge::crypto::DirectDecryptCtx::new(mech, key).map_err(Error::CryptoError)?)
         });
         Ok(())
     }
@@ -234,56 +241,5 @@ impl Session {
         }
     }
 
-    /// Constructs an EVP_PKEY wrapper object from a p11 object based on an input
-    /// PEM formatted string while also keeping consistency with the requested mechanism.
-    fn private_key_for_mech(
-        &self,
-        mech: &Mechanism,
-        key_handle: ObjectHandle,
-    ) -> Result<crypto::Pkey> {
-        let key_obj = self.db.object(key_handle).ok_or(Error::KeyHandleInvalid)?;
-        match mech {
-            Mechanism::RsaX509 | Mechanism::RsaPkcs(..) | Mechanism::RsaPkcsPss(..) => {
-                if let ObjectKind::RsaPrivateKey(pem) = key_obj.kind() {
-                    crypto::Pkey::from_private_pem(pem.as_str()).map_err(Error::CryptoError)
-                } else {
-                    Err(Error::KeyTypeInconsistent)
-                }
-            }
-            Mechanism::Ecdsa(..) => {
-                if let ObjectKind::EcPrivateKey(pem) = key_obj.kind() {
-                    crypto::Pkey::from_private_pem(pem.as_str()).map_err(Error::CryptoError)
-                } else {
-                    Err(Error::KeyTypeInconsistent)
-                }
-            }
-            _ => Err(Error::MechanismInvalid),
-        }
-    }
-
-    /// Constructs an internal public key object type from the provisioned PEM file
-    fn public_key_for_mech(
-        &self,
-        mech: &Mechanism,
-        key_handle: ObjectHandle,
-    ) -> Result<crypto::Pkey> {
-        let key_obj = self.db.object(key_handle).ok_or(Error::KeyHandleInvalid)?;
-        match mech {
-            Mechanism::RsaX509 | Mechanism::RsaPkcs(..) | Mechanism::RsaPkcsPss(..) => {
-                if let ObjectKind::RsaPublicKey(pem) = key_obj.kind() {
-                    crypto::Pkey::from_private_pem(pem.as_str()).map_err(Error::CryptoError)
-                } else {
-                    Err(Error::KeyTypeInconsistent)
-                }
-            }
-            Mechanism::Ecdsa(..) => {
-                if let ObjectKind::EcPublicKey(pem) = key_obj.kind() {
-                    crypto::Pkey::from_private_pem(pem.as_str()).map_err(Error::CryptoError)
-                } else {
-                    Err(Error::KeyTypeInconsistent)
-                }
-            }
-            _ => Err(Error::MechanismInvalid),
-        }
-    }
+    // Key helper methods are now handled by the bridge layer
 }

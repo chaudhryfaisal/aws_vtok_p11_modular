@@ -8,6 +8,7 @@ use vtok_common::{config, util};
 
 use crate::defs;
 use crate::pkcs11;
+use crate::bridge::SyncCryptoBackend;
 
 use super::db;
 use super::db::{Db, ObjectKind};
@@ -41,10 +42,11 @@ pub struct Token {
     db: Option<Db>,
     user_login: bool,
     expiry_ts: u64,
+    crypto_backend: Arc<SyncCryptoBackend>,
 }
 
 impl Token {
-    pub fn from_config(slot_id: pkcs11::CK_SLOT_ID, token_config: &config::Token) -> Result<Self> {
+    pub fn from_config(slot_id: pkcs11::CK_SLOT_ID, token_config: &config::Token, crypto_backend: Arc<SyncCryptoBackend>) -> Result<Self> {
         Ok(Self {
             slot_id,
             label: token_config.label.clone(),
@@ -52,6 +54,7 @@ impl Token {
             db: Some(Db::from_token_config(token_config).map_err(Error::DbLoad)?),
             user_login: false,
             expiry_ts: token_config.expiry_ts,
+            crypto_backend,
         })
     }
 
@@ -128,7 +131,7 @@ impl Token {
         };
         self.sessions.insert(
             handle,
-            Arc::new(Mutex::new(Session::new(self.slot_id, db_clone, state))),
+            Arc::new(Mutex::new(Session::new(self.slot_id, db_clone, state, self.crypto_backend.clone()))),
         );
 
         Ok(())

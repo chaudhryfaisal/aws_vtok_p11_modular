@@ -266,6 +266,7 @@ pub fn backend_error_to_pkcs11(error: &BackendError) -> u32 {
         BackendError::Timeout => 0x00000005, // CKR_GENERAL_ERROR
         BackendError::OutOfMemory => 0x00000002, // CKR_HOST_MEMORY
         BackendError::Internal(_) => 0x00000005, // CKR_GENERAL_ERROR
+        BackendError::MockError(_) => 0x00000005, // CKR_GENERAL_ERROR
     }
 }
 

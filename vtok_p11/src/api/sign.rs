@@ -3,7 +3,7 @@
 
 use super::util::copy_data_to_ck_out_slice;
 use crate::backend::Mechanism;
-use crate::crypto::OpCtxState;
+use crate::bridge::context::OpCtxState;
 use crate::pkcs11;
 use crate::util::ckraw::CkRawMechanism;
 use crate::Error;
@@ -51,7 +51,7 @@ pub extern "C" fn C_Sign(
         .ok_or(Error::OperationNotInitialized)
         .and_then(|ctx| {
             ctx.enter_state(OpCtxState::SinglepartActive)
-                .map_err(Error::CryptoError)?;
+                .map_err(|e| crate::bridge::backend_error_to_p11_error(e.into()))?;
             Ok(ctx.sig_len_ck())
         }) {
         Ok(l) => l,
@@ -75,7 +75,7 @@ pub extern "C" fn C_Sign(
         .unwrap()
         .sign(in_slice)
         .map(|v| copy_data_to_ck_out_slice(v.as_slice(), out_slice, pulSignatureLen))
-        .map_err(Error::CryptoError)
+        .map_err(|e| crate::bridge::backend_error_to_p11_error(e.into()))
         .unwrap_or_else(|e| e.into())
 }
 
@@ -96,10 +96,9 @@ pub extern "C" fn C_SignUpdate(
     });
     session
         .sign_ctx()
-        .take()
         .as_mut()
         .ok_or(Error::OperationNotInitialized)
-        .and_then(|ctx| ctx.update(in_slice).map_err(Error::CryptoError))
+        .and_then(|ctx| ctx.update(in_slice).map_err(|e| crate::bridge::backend_error_to_p11_error(e.into())))
         .map(|_| pkcs11::CKR_OK)
         .unwrap_or_else(|e| e.into())
 }
@@ -119,7 +118,7 @@ pub extern "C" fn C_SignFinal(
         .ok_or(Error::OperationNotInitialized)
         .and_then(|ctx| {
             ctx.enter_state(OpCtxState::MultipartReady)
-                .map_err(Error::CryptoError)?;
+                .map_err(|e| crate::bridge::backend_error_to_p11_error(e.into()))?;
             Ok(ctx.sig_len_ck())
         }) {
         Ok(l) => l,
@@ -139,6 +138,6 @@ pub extern "C" fn C_SignFinal(
         .unwrap()
         .finalize()
         .map(|v| copy_data_to_ck_out_slice(v.as_slice(), out_slice, pulSignatureLen))
-        .map_err(Error::CryptoError)
+        .map_err(|e| crate::bridge::backend_error_to_p11_error(e.into()))
         .unwrap_or_else(|e| e.into())
 }

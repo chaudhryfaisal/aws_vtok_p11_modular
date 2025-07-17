@@ -6,7 +6,7 @@ use std::mem::size_of;
 
 use super::{CertInfo, EcKeyInfo, RsaKeyInfo};
 use crate::backend::Mechanism;
-use crate::crypto;
+use crate::bridge;
 use crate::pkcs11;
 use crate::util::{CkRawAttrTemplate, Error as UtilError};
 use crate::{Error, Result};
@@ -310,10 +310,10 @@ impl Object {
             Attr::from_ck_cert_type(pkcs11::CKC_X_509),
         );
         let categ = match info.categ {
-            crypto::CertCategory::Unverified => pkcs11::CK_CERTIFICATE_CATEGORY_UNSPECIFIED,
-            crypto::CertCategory::Token => pkcs11::CK_CERTIFICATE_CATEGORY_TOKEN_USER,
-            crypto::CertCategory::Authority => pkcs11::CK_CERTIFICATE_CATEGORY_AUTHORITY,
-            crypto::CertCategory::Other => pkcs11::CK_CERTIFICATE_CATEGORY_OTHER_ENTITY,
+            crate::crypto_compat::CertCategory::Unverified => pkcs11::CK_CERTIFICATE_CATEGORY_UNSPECIFIED,
+            crate::crypto_compat::CertCategory::Token => pkcs11::CK_CERTIFICATE_CATEGORY_TOKEN_USER,
+            crate::crypto_compat::CertCategory::Authority => pkcs11::CK_CERTIFICATE_CATEGORY_AUTHORITY,
+            crate::crypto_compat::CertCategory::Other => pkcs11::CK_CERTIFICATE_CATEGORY_OTHER_ENTITY,
         };
         attrs.insert(
             pkcs11::CKA_CERTIFICATE_CATEGORY,

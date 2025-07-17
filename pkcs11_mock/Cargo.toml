@@ -1,0 +1,57 @@
+[package]
+name = "pkcs11_mock"
+version = "0.1.0"
+authors = ["The AWS Nitro Enclaves Team <aws-nitro-enclaves-devel@amazon.com>"]
+edition = "2021"
+description = "Complete PKCS#11 provider with mock cryptographic backend for testing and development"
+license = "Apache-2.0"
+repository = "https://github.com/aws/aws-nitro-enclaves-sdk-c"
+keywords = ["pkcs11", "cryptography", "mock", "testing", "development"]
+categories = ["cryptography", "api-bindings", "development-tools::testing"]
+
+[lib]
+name = "pkcs11_mock"
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "info"
+path = "src/bin/info.rs"
+
+[dependencies]
+# Core vtok dependencies
+vtok_p11 = { path = "../vtok_p11" }
+vtok_backend = { path = "../vtok_backend" }
+vtok_common = { path = "../vtok_common" }
+
+# Standard dependencies
+libc = "0.2"
+lazy_static = "1.4.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.0", features = ["rt", "rt-multi-thread", "macros"] }
+log = { version = "0.4.20", features = ["std"] }
+env_logger = "0.10"
+
+# Mock-specific dependencies
+rand = "0.8"
+sha2 = "0.10"
+thiserror = "1.0"
+clap = { version = "4.0", features = ["derive"] }
+uuid = { version = "1.0", features = ["v4"] }
+
+# For deterministic behavior in tests
+rand_chacha = "0.3"
+
+[dev-dependencies]
+tokio-test = "0.4"
+tempfile = "3.0"
+tokio = { version = "1.0", features = ["rt", "rt-multi-thread", "macros", "test-util"] }
+
+[features]
+default = ["deterministic"]
+deterministic = []  # Enable deterministic behavior for reproducible tests
+error-injection = []  # Enable error injection capabilities
+performance-simulation = []  # Enable performance simulation features
+
+[build-dependencies]
+# No additional build dependencies needed

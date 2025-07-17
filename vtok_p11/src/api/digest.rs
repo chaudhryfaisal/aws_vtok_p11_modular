@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::util::copy_data_to_ck_out_slice;
-use crate::crypto::OpCtxState;
+use crate::bridge::context::OpCtxState;
 use crate::pkcs11;
 use crate::Error;
 

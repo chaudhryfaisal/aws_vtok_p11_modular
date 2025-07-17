@@ -133,10 +133,12 @@ pub mod token;
 pub mod verify;
 
 use crate::backend::device::Device;
+use crate::bridge::SyncCryptoBackend;
 use crate::data;
 use crate::defs;
 use crate::pkcs11;
 use crate::util::logger::Logger;
+use std::sync::Arc;
 
 /// See PKCS#11 v2.40 Section 5.4 General-purpose functions
 #[no_mangle]
@@ -173,7 +175,13 @@ pub extern "C" fn C_Initialize(pInitArgs: pkcs11::CK_VOID_PTR) -> pkcs11::CK_RV 
         return pkcs11::CKR_CRYPTOKI_ALREADY_INITIALIZED;
     }
 
-    Device::new()
+    // Create a mock backend for now
+    let backend = match SyncCryptoBackend::new_mock() {
+        Ok(backend) => Arc::new(backend),
+        Err(_) => return pkcs11::CKR_DEVICE_ERROR,
+    };
+    
+    Device::new(backend)
         .map(|device| maybe_device.replace(device))
         .map(|_| pkcs11::CKR_OK)
         .unwrap_or_else(|e| e.into())
