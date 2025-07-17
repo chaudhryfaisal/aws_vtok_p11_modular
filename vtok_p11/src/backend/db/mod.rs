@@ -125,7 +125,7 @@ impl Db {
                             if pos == 0 {
                                 (crypto::CertCategory::Token, key_config.id)
                             } else {
-                                (crypto::CertCategory::Authority, key_config.id + pos)
+                                (crypto::CertCategory::Authority, key_config.id + pos as u8)
                             }
                         };
                         let x509_obj = CertInfo {

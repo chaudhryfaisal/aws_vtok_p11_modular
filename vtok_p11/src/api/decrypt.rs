@@ -51,7 +51,7 @@ pub extern "C" fn C_Decrypt(
         .ok_or(Error::OperationNotInitialized)
         .and_then(|ctx| {
             ctx.enter_state(OpCtxState::SinglepartActive)
-                .map_err(Error::CryptoError)?;
+                .map_err(|e| Error::CryptoError(e.into()))?;
             Ok(ctx.len())
         }) {
         Ok(l) => l,
@@ -75,6 +75,6 @@ pub extern "C" fn C_Decrypt(
         .unwrap()
         .decrypt(in_slice)
         .map(|v| copy_data_to_ck_out_slice(v.as_slice(), out_slice, pulDataLen))
-        .map_err(Error::CryptoError)
+        .map_err(|e| Error::CryptoError(e.into()))
         .unwrap_or_else(|e| e.into())
 }

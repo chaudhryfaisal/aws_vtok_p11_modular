@@ -1,7 +1,7 @@
 //! Mock verify context implementation.
 
-use vtok_backend::traits::VerifyContext;
-use vtok_backend::types::{BackendResult, BackendError, Mechanism};
+use vtok_backend::traits::{VerifyContext, Key};
+use vtok_backend::types::{BackendResult, BackendError, Mechanism, ContextState, KeyAlgorithm};
 
 use crate::data::MockConfig;
 use super::context::MockContext;
@@ -33,21 +33,21 @@ impl MockVerifyContext {
 
     /// Perform mock signature verification
     fn verify_mock_signature(&self, data: &[u8], signature: &[u8]) -> bool {
-        if self.context.config.deterministic {
+        if self.context.is_deterministic() {
             // For deterministic mode, verify against expected signature pattern
             let expected_sig_size = match self.mechanism {
                 Mechanism::RsaPkcs1 { .. } | Mechanism::RsaPkcs1Pss { .. } => {
                     match self.key.algorithm() {
-                        vtok_backend::types::KeyAlgorithm::Rsa2048 => 256,
-                        vtok_backend::types::KeyAlgorithm::Rsa3072 => 384,
-                        vtok_backend::types::KeyAlgorithm::Rsa4096 => 512,
+                        KeyAlgorithm::Rsa2048 => 256,
+                        KeyAlgorithm::Rsa3072 => 384,
+                        KeyAlgorithm::Rsa4096 => 512,
                         _ => 256,
                     }
                 }
                 Mechanism::Ecdsa { .. } => {
                     match self.key.algorithm() {
-                        vtok_backend::types::KeyAlgorithm::EcdsaP256 => 64,
-                        vtok_backend::types::KeyAlgorithm::EcdsaP384 => 96,
+                        KeyAlgorithm::EcdsaP256 => 64,
+                        KeyAlgorithm::EcdsaP384 => 96,
                         _ => 64,
                     }
                 }
@@ -86,7 +86,32 @@ impl VerifyContext for MockVerifyContext {
         &self.mechanism
     }
 
-    fn update(&mut self, data: &[u8]) -> BackendResult<()> {
+    fn signature_size(&self) -> usize {
+        match self.mechanism {
+            Mechanism::RsaPkcs1 { .. } | Mechanism::RsaPkcs1Pss { .. } => {
+                match self.key.algorithm() {
+                    KeyAlgorithm::Rsa2048 => 256,
+                    KeyAlgorithm::Rsa3072 => 384,
+                    KeyAlgorithm::Rsa4096 => 512,
+                    _ => 256,
+                }
+            }
+            Mechanism::Ecdsa { .. } => {
+                match self.key.algorithm() {
+                    KeyAlgorithm::EcdsaP256 => 64,
+                    KeyAlgorithm::EcdsaP384 => 96,
+                    _ => 64,
+                }
+            }
+            _ => 64,
+        }
+    }
+
+    fn state(&self) -> ContextState {
+        ContextState::MultiPartActive
+    }
+
+    async fn update(&mut self, data: &[u8]) -> BackendResult<()> {
         if let Some(error) = self.context.should_inject_error("verify_update") {
             return Err(error);
         }
@@ -95,7 +120,7 @@ impl VerifyContext for MockVerifyContext {
         Ok(())
     }
 
-    fn finalize(self, signature: &[u8]) -> BackendResult<bool> {
+    async fn finalize(self, signature: &[u8]) -> BackendResult<bool> {
         if let Some(error) = self.context.should_inject_error("verify_finalize") {
             return Err(error);
         }
@@ -103,20 +128,24 @@ impl VerifyContext for MockVerifyContext {
         Ok(self.verify_mock_signature(&self.data_buffer, signature))
     }
 
-    fn verify_oneshot(&self, data: &[u8], signature: &[u8]) -> BackendResult<bool> {
-        if let Some(error) = self.context.should_inject_error("verify_oneshot") {
-            return Err(error);
-        }
-
-        Ok(self.verify_mock_signature(data, signature))
+    fn key_algorithm(&self) -> KeyAlgorithm {
+        self.key.algorithm()
     }
 
-    fn reset(&mut self) -> BackendResult<()> {
+    fn key_size(&self) -> usize {
+        self.key.key_size()
+    }
+
+    async fn reset(&mut self) -> BackendResult<()> {
         if let Some(error) = self.context.should_inject_error("verify_reset") {
             return Err(error);
         }
 
         self.data_buffer.clear();
         Ok(())
+    }
+
+    fn supports_reset(&self) -> bool {
+        true
     }
 }

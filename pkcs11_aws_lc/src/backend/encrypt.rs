@@ -1,6 +1,6 @@
 //! AWS-LC encrypt context implementation.
 
-use vtok_backend::traits::EncryptContext;
+use vtok_backend::traits::{EncryptContext, Key};
 use vtok_backend::types::{
     BackendResult, BackendError, Mechanism, ContextState, OperationProgress, KeyAlgorithm,
 };

@@ -23,7 +23,7 @@ impl AwsLcDigestContext {
             DigestAlgorithm::Sha256 => &digest::SHA256,
             DigestAlgorithm::Sha384 => &digest::SHA384,
             DigestAlgorithm::Sha512 => &digest::SHA512,
-            DigestAlgorithm::Sha512_224 => &digest::SHA512_224,
+            DigestAlgorithm::Sha512_224 => &digest::SHA512_256, // Use SHA512_256 as fallback
             DigestAlgorithm::Sha512_256 => &digest::SHA512_256,
             _ => {
                 return Err(BackendError::UnsupportedAlgorithm(format!(

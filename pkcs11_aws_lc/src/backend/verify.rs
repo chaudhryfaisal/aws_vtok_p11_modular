@@ -1,6 +1,6 @@
 //! AWS-LC verify context implementation.
 
-use vtok_backend::traits::VerifyContext;
+use vtok_backend::traits::{VerifyContext, Key};
 use vtok_backend::types::{
     BackendResult, BackendError, Mechanism, ContextState, OperationProgress, KeyAlgorithm,
 };

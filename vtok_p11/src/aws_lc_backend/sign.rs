@@ -1,6 +1,6 @@
 //! AWS-LC sign context implementation.
 
-use vtok_backend::traits::SignContext;
+use vtok_backend::traits::{SignContext, Key};
 use vtok_backend::types::{
     BackendResult, BackendError, Mechanism, ContextState, OperationProgress, KeyAlgorithm,
 };

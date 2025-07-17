@@ -351,10 +351,10 @@ impl Key for MockKey {
 
     fn export_key(&self) -> BackendResult<Vec<u8>> {
         if !self.extractable {
-            return Err(BackendError::KeyNotExtractable("Key is not extractable".to_string()));
+            return Err(BackendError::KeyNotExtractable);
         }
         if self.sensitive {
-            return Err(BackendError::KeySensitive("Key is sensitive".to_string()));
+            return Err(BackendError::KeySensitive);
         }
         Ok(self.key_data.clone())
     }
@@ -370,7 +370,7 @@ impl Key for MockKey {
                 }
                 Ok(public_data)
             }
-            KeyType::Secret => Err(BackendError::InvalidKeyType("Symmetric keys don't have public components".to_string())),
+            KeyType::Secret => Err(BackendError::InvalidKeyData("Symmetric keys don't have public components".to_string())),
         }
     }
 
@@ -488,7 +488,7 @@ impl Certificate for MockCertificate {
     }
 
     fn fingerprint_sha1(&self) -> BackendResult<Vec<u8>> {
-        use sha2::Sha1;
+        use sha1::{Sha1, Digest};
         let mut hasher = Sha1::new();
         hasher.update(&self.der_data);
         Ok(hasher.finalize().to_vec())

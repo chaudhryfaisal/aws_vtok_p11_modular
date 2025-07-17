@@ -1,6 +1,6 @@
 //! AWS-LC decrypt context implementation.
 
-use vtok_backend::traits::DecryptContext;
+use vtok_backend::traits::{DecryptContext, Key};
 use vtok_backend::types::{
     BackendResult, BackendError, Mechanism, ContextState, OperationProgress, KeyAlgorithm,
 };

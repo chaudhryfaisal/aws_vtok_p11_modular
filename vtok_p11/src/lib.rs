@@ -20,7 +20,7 @@ mod pkcs11;
 // Re-export crypto_compat as crypto for compatibility
 use crypto_compat as crypto;
 
-use crate::bridge::CryptoError;
+use crate::bridge::crypto::CryptoError;
 use backend::token::Error as TokenError;
 
 /// Device, slot and token capabilities and information
@@ -184,7 +184,7 @@ mod data {
 #[derive(Clone, Copy, Debug)]
 pub enum Error {
     CkError(pkcs11::CK_RV),
-    CryptoError(crypto::Error),
+    CryptoError(CryptoError),
     KeyHandleInvalid,
     KeyTypeInconsistent,
     MechanismInvalid,

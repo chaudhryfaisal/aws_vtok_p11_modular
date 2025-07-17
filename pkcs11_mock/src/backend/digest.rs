@@ -1,7 +1,7 @@
 //! Mock digest context implementation.
 
 use vtok_backend::traits::DigestContext;
-use vtok_backend::types::{BackendResult, BackendError, DigestAlgorithm};
+use vtok_backend::types::{BackendResult, BackendError, DigestAlgorithm, ContextState};
 use sha2::{Sha256, Sha384, Sha512, Digest};
 
 use crate::data::MockConfig;
@@ -154,7 +154,11 @@ impl DigestContext for MockDigestContext {
         self.algorithm
     }
 
-    fn update(&mut self, data: &[u8]) -> BackendResult<()> {
+    fn state(&self) -> ContextState {
+        ContextState::MultiPartActive
+    }
+
+    async fn update(&mut self, data: &[u8]) -> BackendResult<()> {
         if let Some(error) = self.context.should_inject_error("digest_update") {
             return Err(error);
         }
@@ -163,7 +167,7 @@ impl DigestContext for MockDigestContext {
         Ok(())
     }
 
-    fn finalize(mut self) -> BackendResult<Vec<u8>> {
+    async fn finalize(mut self) -> BackendResult<Vec<u8>> {
         if let Some(error) = self.context.should_inject_error("digest_finalize") {
             return Err(error);
         }
@@ -175,7 +179,7 @@ impl DigestContext for MockDigestContext {
         self.hasher.output_size()
     }
 
-    fn reset(&mut self) -> BackendResult<()> {
+    async fn reset(&mut self) -> BackendResult<()> {
         if let Some(error) = self.context.should_inject_error("digest_reset") {
             return Err(error);
         }
@@ -184,15 +188,15 @@ impl DigestContext for MockDigestContext {
         self.hasher = match self.algorithm {
             DigestAlgorithm::Sha256 => Box::new(MockSha256Hasher {
                 hasher: Sha256::new(),
-                deterministic: self.context.config.deterministic,
+                deterministic: self.context.is_deterministic(),
             }),
             DigestAlgorithm::Sha384 => Box::new(MockSha384Hasher {
                 hasher: Sha384::new(),
-                deterministic: self.context.config.deterministic,
+                deterministic: self.context.is_deterministic(),
             }),
             DigestAlgorithm::Sha512 => Box::new(MockSha512Hasher {
                 hasher: Sha512::new(),
-                deterministic: self.context.config.deterministic,
+                deterministic: self.context.is_deterministic(),
             }),
             _ => return Err(BackendError::UnsupportedAlgorithm(format!(
                 "Digest algorithm {:?} not supported in mock",
@@ -203,14 +207,8 @@ impl DigestContext for MockDigestContext {
         Ok(())
     }
 
-    fn clone_context(&self) -> BackendResult<Box<dyn DigestContext>> {
-        let cloned_hasher = self.hasher.clone_hasher();
-        
-        Ok(Box::new(Self {
-            algorithm: self.algorithm,
-            context: self.context.clone(),
-            hasher: cloned_hasher,
-        }))
+    fn supports_reset(&self) -> bool {
+        true
     }
 }
 

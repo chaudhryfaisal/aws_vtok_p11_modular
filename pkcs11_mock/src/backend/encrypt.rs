@@ -1,7 +1,7 @@
 //! Mock encrypt context implementation.
 
-use vtok_backend::traits::EncryptContext;
-use vtok_backend::types::{BackendResult, BackendError, Mechanism};
+use vtok_backend::traits::{EncryptContext, Key};
+use vtok_backend::types::{BackendResult, BackendError, Mechanism, ContextState, KeyAlgorithm};
 
 use crate::data::MockConfig;
 use super::context::MockContext;
@@ -33,7 +33,7 @@ impl MockEncryptContext {
 
     /// Perform mock encryption
     fn encrypt_mock_data(&self, data: &[u8]) -> Vec<u8> {
-        if self.context.config.deterministic {
+        if self.context.is_deterministic() {
             // Simple XOR-based "encryption" for deterministic testing
             let key_data = self.key.key_data();
             let mut encrypted = Vec::with_capacity(data.len());
@@ -60,9 +60,9 @@ impl MockEncryptContext {
             Mechanism::RsaPkcs1 { .. } | Mechanism::RsaPkcs1Pss { .. } => {
                 // RSA encryption output is always the key size
                 match self.key.algorithm() {
-                    vtok_backend::types::KeyAlgorithm::Rsa2048 => 256,
-                    vtok_backend::types::KeyAlgorithm::Rsa3072 => 384,
-                    vtok_backend::types::KeyAlgorithm::Rsa4096 => 512,
+                    KeyAlgorithm::Rsa2048 => 256,
+                    KeyAlgorithm::Rsa3072 => 384,
+                    KeyAlgorithm::Rsa4096 => 512,
                     _ => 256,
                 }
             }
@@ -79,7 +79,11 @@ impl EncryptContext for MockEncryptContext {
         &self.mechanism
     }
 
-    fn update(&mut self, data: &[u8]) -> BackendResult<Vec<u8>> {
+    fn state(&self) -> ContextState {
+        ContextState::MultiPartActive
+    }
+
+    async fn update(&mut self, data: &[u8]) -> BackendResult<Vec<u8>> {
         if let Some(error) = self.context.should_inject_error("encrypt_update") {
             return Err(error);
         }
@@ -91,7 +95,7 @@ impl EncryptContext for MockEncryptContext {
         Ok(Vec::new())
     }
 
-    fn finalize(self) -> BackendResult<Vec<u8>> {
+    async fn finalize(self) -> BackendResult<Vec<u8>> {
         if let Some(error) = self.context.should_inject_error("encrypt_finalize") {
             return Err(error);
         }
@@ -99,24 +103,28 @@ impl EncryptContext for MockEncryptContext {
         Ok(self.encrypt_mock_data(&self.data_buffer))
     }
 
-    fn encrypt_oneshot(&self, data: &[u8]) -> BackendResult<Vec<u8>> {
-        if let Some(error) = self.context.should_inject_error("encrypt_oneshot") {
-            return Err(error);
-        }
-
-        Ok(self.encrypt_mock_data(data))
+    fn key_algorithm(&self) -> KeyAlgorithm {
+        self.key.algorithm()
     }
 
-    fn output_size(&self, input_size: usize) -> BackendResult<usize> {
-        Ok(self.calculate_output_size(input_size))
+    fn key_size(&self) -> usize {
+        self.key.key_size()
     }
 
-    fn reset(&mut self) -> BackendResult<()> {
+    fn output_size(&self, input_size: usize) -> usize {
+        self.calculate_output_size(input_size)
+    }
+
+    async fn reset(&mut self) -> BackendResult<()> {
         if let Some(error) = self.context.should_inject_error("encrypt_reset") {
             return Err(error);
         }
 
         self.data_buffer.clear();
         Ok(())
+    }
+
+    fn supports_reset(&self) -> bool {
+        true
     }
 }

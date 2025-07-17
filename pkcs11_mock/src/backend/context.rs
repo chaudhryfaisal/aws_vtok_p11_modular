@@ -65,4 +65,9 @@ impl MockContext {
             data
         }
     }
+
+    /// Check if deterministic mode is enabled
+    pub fn is_deterministic(&self) -> bool {
+        self.config.deterministic
+    }
 }

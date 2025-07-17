@@ -5,6 +5,7 @@
 
 use std::sync::Arc;
 use tokio::runtime::Runtime;
+use vtok_backend::traits::CryptoBackend;
 use vtok_backend::types::{
     BackendResult, KeyAlgorithm, KeyType, Mechanism, DigestAlgorithm,
     MechanismParams, ContextConfig

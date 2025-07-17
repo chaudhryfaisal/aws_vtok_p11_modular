@@ -1,7 +1,7 @@
 //! Mock decrypt context implementation.
 
-use vtok_backend::traits::DecryptContext;
-use vtok_backend::types::{BackendResult, BackendError, Mechanism};
+use vtok_backend::traits::{DecryptContext, Key};
+use vtok_backend::types::{BackendResult, BackendError, Mechanism, ContextState, KeyAlgorithm};
 
 use crate::data::MockConfig;
 use super::context::MockContext;
@@ -33,7 +33,7 @@ impl MockDecryptContext {
 
     /// Perform mock decryption
     fn decrypt_mock_data(&self, data: &[u8]) -> Vec<u8> {
-        if self.context.config.deterministic {
+        if self.context.is_deterministic() {
             // Simple XOR-based "decryption" for deterministic testing
             // This reverses the encryption operation
             let key_data = self.key.key_data();
@@ -63,9 +63,9 @@ impl MockDecryptContext {
                 // RSA decryption output is typically smaller than input
                 // For simplicity, we'll assume maximum possible output
                 match self.key.algorithm() {
-                    vtok_backend::types::KeyAlgorithm::Rsa2048 => 245, // 256 - 11 (PKCS#1 padding)
-                    vtok_backend::types::KeyAlgorithm::Rsa3072 => 373, // 384 - 11
-                    vtok_backend::types::KeyAlgorithm::Rsa4096 => 501, // 512 - 11
+                    KeyAlgorithm::Rsa2048 => 245, // 256 - 11 (PKCS#1 padding)
+                    KeyAlgorithm::Rsa3072 => 373, // 384 - 11
+                    KeyAlgorithm::Rsa4096 => 501, // 512 - 11
                     _ => 245,
                 }
             }
@@ -82,19 +82,23 @@ impl DecryptContext for MockDecryptContext {
         &self.mechanism
     }
 
-    fn update(&mut self, data: &[u8]) -> BackendResult<Vec<u8>> {
+    fn state(&self) -> ContextState {
+        ContextState::MultiPartActive
+    }
+
+    async fn update(&mut self, ciphertext: &[u8]) -> BackendResult<Vec<u8>> {
         if let Some(error) = self.context.should_inject_error("decrypt_update") {
             return Err(error);
         }
 
         // For streaming decryption, we buffer the data
-        self.data_buffer.extend_from_slice(data);
+        self.data_buffer.extend_from_slice(ciphertext);
         
         // Return empty vector for update operations (data is buffered)
         Ok(Vec::new())
     }
 
-    fn finalize(self) -> BackendResult<Vec<u8>> {
+    async fn finalize(self) -> BackendResult<Vec<u8>> {
         if let Some(error) = self.context.should_inject_error("decrypt_finalize") {
             return Err(error);
         }
@@ -102,24 +106,28 @@ impl DecryptContext for MockDecryptContext {
         Ok(self.decrypt_mock_data(&self.data_buffer))
     }
 
-    fn decrypt_oneshot(&self, data: &[u8]) -> BackendResult<Vec<u8>> {
-        if let Some(error) = self.context.should_inject_error("decrypt_oneshot") {
-            return Err(error);
-        }
-
-        Ok(self.decrypt_mock_data(data))
+    fn key_algorithm(&self) -> KeyAlgorithm {
+        self.key.algorithm()
     }
 
-    fn output_size(&self, input_size: usize) -> BackendResult<usize> {
-        Ok(self.calculate_output_size(input_size))
+    fn key_size(&self) -> usize {
+        self.key.key_size()
     }
 
-    fn reset(&mut self) -> BackendResult<()> {
+    fn output_size(&self, ciphertext_size: usize) -> usize {
+        self.calculate_output_size(ciphertext_size)
+    }
+
+    async fn reset(&mut self) -> BackendResult<()> {
         if let Some(error) = self.context.should_inject_error("decrypt_reset") {
             return Err(error);
         }
 
         self.data_buffer.clear();
         Ok(())
+    }
+
+    fn supports_reset(&self) -> bool {
+        true
     }
 }

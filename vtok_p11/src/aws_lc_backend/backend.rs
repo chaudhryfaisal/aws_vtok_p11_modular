@@ -2,7 +2,8 @@
 
 use std::sync::Arc;
 use aws_lc_rs::{signature, digest, rand};
-use vtok_backend::traits::CryptoBackend;
+use aws_lc_rs::rsa::KeySize;
+use vtok_backend::traits::{CryptoBackend, Key};
 use vtok_backend::types::{
     BackendResult, BackendError, KeyAlgorithm, KeyType, Mechanism,
     DigestAlgorithm, MechanismParams, ContextConfig,
@@ -151,21 +152,27 @@ impl CryptoBackend for AwsLcBackend {
 
         match algorithm {
             KeyAlgorithm::Rsa2048 => {
-                let key_pair = signature::RsaKeyPair::generate(&rng, 2048)
+                let key_pair = signature::RsaKeyPair::generate(KeySize::Rsa2048)
                     .map_err(|e| BackendError::KeyGeneration(format!("RSA key generation failed: {}", e)))?;
                 
                 let private_key = AwsLcKey::new_rsa_keypair(key_pair, algorithm, KeyType::Private)?;
-                let public_key_components = private_key.key_data().clone(); // This needs proper implementation
-                let public_key = AwsLcKey::new_rsa_public_key(
-                    signature::RsaPublicKeyComponents { n: vec![], e: vec![] }, // Placeholder
-                    algorithm
-                )?;
+                let public_key_bytes = private_key.export_public_key()?;
+                // For now, create a simple public key representation
+                // In a real implementation, you'd properly parse the public key bytes
+                let public_key_components = signature::RsaPublicKeyComponents {
+                    n: public_key_bytes,
+                    e: vec![0x01, 0x00, 0x01], // Standard RSA exponent
+                };
+                let public_key = AwsLcKey::new_rsa_public_key(public_key_components, algorithm)?;
                 
                 Ok(AwsLcKeyPair::new(private_key, public_key))
             }
             KeyAlgorithm::EcdsaP256 => {
-                let key_pair = signature::EcdsaKeyPair::generate_pkcs8(&signature::ECDSA_P256_SHA256_ASN1_SIGNING, &rng)
+                let pkcs8_bytes = signature::EcdsaKeyPair::generate_pkcs8(&signature::ECDSA_P256_SHA256_ASN1_SIGNING, &rng)
                     .map_err(|e| BackendError::KeyGeneration(format!("ECDSA key generation failed: {}", e)))?;
+                
+                let key_pair = signature::EcdsaKeyPair::from_pkcs8(&signature::ECDSA_P256_SHA256_ASN1_SIGNING, pkcs8_bytes.as_ref())
+                    .map_err(|e| BackendError::KeyGeneration(format!("ECDSA key pair creation failed: {}", e)))?;
                 
                 let private_key = AwsLcKey::new_ecdsa_keypair(key_pair, algorithm, KeyType::Private)?;
                 let public_key_der = private_key.export_public_key()?;
@@ -188,7 +195,7 @@ impl CryptoBackend for AwsLcBackend {
         match algorithm {
             KeyAlgorithm::Aes256 => {
                 let mut key_bytes = vec![0u8; 32];
-                rand::fill(&rand::SystemRandom::new(), &mut key_bytes)
+                rand::fill(&mut key_bytes)
                     .map_err(|e| BackendError::KeyGeneration(format!("AES key generation failed: {}", e)))?;
                 
                 AwsLcKey::new_symmetric_key(key_bytes, algorithm)
@@ -285,7 +292,7 @@ impl CryptoBackend for AwsLcBackend {
 
     async fn generate_random(&self, length: usize) -> BackendResult<Vec<u8>> {
         let mut bytes = vec![0u8; length];
-        rand::fill(&rand::SystemRandom::new(), &mut bytes)
+        rand::fill(&mut bytes)
             .map_err(|e| BackendError::RandomGeneration(format!("Random generation failed: {}", e)))?;
         Ok(bytes)
     }

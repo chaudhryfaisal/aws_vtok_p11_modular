@@ -236,13 +236,13 @@ impl Default for ProviderConfig {
 impl MockProvider {
     /// Create a new provider with custom configuration
     pub fn with_provider_config(config: ProviderConfig) -> Result<Self, ProviderError> {
-        let backend = MockBackend::with_config(config.mock_config)
-            .map_err(|e| ProviderError::BackendError(e))?;
-        let provider = Self::new(backend);
-        
         if config.enable_logging {
             log::info!("Mock provider created with config: {:?}", config);
         }
+        
+        let backend = MockBackend::with_config(config.mock_config)
+            .map_err(|e| ProviderError::BackendError(e))?;
+        let provider = Self::new(backend);
         
         Ok(provider)
     }

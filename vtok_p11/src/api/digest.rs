@@ -44,7 +44,7 @@ pub extern "C" fn C_Digest(
         .ok_or(Error::OperationNotInitialized)
         .and_then(|ctx| {
             ctx.enter_state(OpCtxState::SinglepartActive)
-                .map_err(Error::CryptoError)?;
+                .map_err(|e| Error::CryptoError(e.into()))?;
             Ok(ctx.len())
         }) {
         Ok(l) => l,
@@ -68,7 +68,7 @@ pub extern "C" fn C_Digest(
         .unwrap()
         .digest(in_slice)
         .map(|v| copy_data_to_ck_out_slice(v.as_slice(), out_slice, pulDigestLen))
-        .map_err(Error::CryptoError)
+        .map_err(|e| crate::bridge::backend_error_to_p11_error(e))
         .unwrap_or_else(|e| e.into())
 }
 
@@ -87,7 +87,7 @@ pub extern "C" fn C_DigestUpdate(
         .digest_ctx()
         .as_mut()
         .ok_or(Error::OperationNotInitialized)
-        .and_then(|ctx| ctx.update(in_slice).map_err(Error::CryptoError))
+        .and_then(|ctx| ctx.update(in_slice).map_err(|e| Error::CryptoError(e.into())))
         .map(|_| pkcs11::CKR_OK)
         .unwrap_or_else(|e| e.into())
 }
@@ -107,7 +107,7 @@ pub extern "C" fn C_DigestFinal(
         .ok_or(Error::OperationNotInitialized)
         .and_then(|ctx| {
             ctx.enter_state(OpCtxState::MultipartReady)
-                .map_err(Error::CryptoError)?;
+                .map_err(|e| crate::bridge::backend_error_to_p11_error(e))?;
             Ok(ctx.len())
         }) {
         Ok(l) => l,
@@ -128,6 +128,6 @@ pub extern "C" fn C_DigestFinal(
         .unwrap()
         .finalize()
         .map(|v| copy_data_to_ck_out_slice(v.as_slice(), out_slice, pulDigestLen))
-        .map_err(Error::CryptoError)
+        .map_err(|e| Error::CryptoError(e.into()))
         .unwrap_or_else(|e| e.into())
 }

@@ -1,7 +1,7 @@
 //! Mock sign context implementation.
 
-use vtok_backend::traits::SignContext;
-use vtok_backend::types::{BackendResult, BackendError, Mechanism};
+use vtok_backend::traits::{SignContext, Key};
+use vtok_backend::types::{BackendResult, BackendError, Mechanism, ContextState, KeyAlgorithm};
 
 use crate::data::MockConfig;
 use super::context::MockContext;
@@ -52,7 +52,7 @@ impl MockSignContext {
             _ => 64,
         };
 
-        if self.context.config.deterministic {
+        if self.context.is_deterministic() {
             // Generate deterministic signature for testing
             let mut signature = Vec::with_capacity(sig_size);
             for i in 0..sig_size {
@@ -72,7 +72,32 @@ impl SignContext for MockSignContext {
         &self.mechanism
     }
 
-    fn update(&mut self, data: &[u8]) -> BackendResult<()> {
+    fn signature_size(&self) -> usize {
+        match self.mechanism {
+            Mechanism::RsaPkcs1 { .. } | Mechanism::RsaPkcs1Pss { .. } => {
+                match self.key.algorithm() {
+                    KeyAlgorithm::Rsa2048 => 256,
+                    KeyAlgorithm::Rsa3072 => 384,
+                    KeyAlgorithm::Rsa4096 => 512,
+                    _ => 256,
+                }
+            }
+            Mechanism::Ecdsa { .. } => {
+                match self.key.algorithm() {
+                    KeyAlgorithm::EcdsaP256 => 64,
+                    KeyAlgorithm::EcdsaP384 => 96,
+                    _ => 64,
+                }
+            }
+            _ => 64,
+        }
+    }
+
+    fn state(&self) -> ContextState {
+        ContextState::MultiPartActive
+    }
+
+    async fn update(&mut self, data: &[u8]) -> BackendResult<()> {
         if let Some(error) = self.context.should_inject_error("sign_update") {
             return Err(error);
         }
@@ -81,7 +106,7 @@ impl SignContext for MockSignContext {
         Ok(())
     }
 
-    fn finalize(self) -> BackendResult<Vec<u8>> {
+    async fn finalize(self) -> BackendResult<Vec<u8>> {
         if let Some(error) = self.context.should_inject_error("sign_finalize") {
             return Err(error);
         }
@@ -89,41 +114,24 @@ impl SignContext for MockSignContext {
         Ok(self.generate_mock_signature(&self.data_buffer))
     }
 
-    fn sign_oneshot(&self, data: &[u8]) -> BackendResult<Vec<u8>> {
-        if let Some(error) = self.context.should_inject_error("sign_oneshot") {
-            return Err(error);
-        }
-
-        Ok(self.generate_mock_signature(data))
+    fn key_algorithm(&self) -> KeyAlgorithm {
+        self.key.algorithm()
     }
 
-    fn max_signature_size(&self) -> usize {
-        match self.mechanism {
-            Mechanism::RsaPkcs1 { .. } | Mechanism::RsaPkcs1Pss { .. } => {
-                match self.key.algorithm() {
-                    vtok_backend::types::KeyAlgorithm::Rsa2048 => 256,
-                    vtok_backend::types::KeyAlgorithm::Rsa3072 => 384,
-                    vtok_backend::types::KeyAlgorithm::Rsa4096 => 512,
-                    _ => 256,
-                }
-            }
-            Mechanism::Ecdsa { .. } => {
-                match self.key.algorithm() {
-                    vtok_backend::types::KeyAlgorithm::EcdsaP256 => 64,
-                    vtok_backend::types::KeyAlgorithm::EcdsaP384 => 96,
-                    _ => 64,
-                }
-            }
-            _ => 64,
-        }
+    fn key_size(&self) -> usize {
+        self.key.key_size()
     }
 
-    fn reset(&mut self) -> BackendResult<()> {
+    async fn reset(&mut self) -> BackendResult<()> {
         if let Some(error) = self.context.should_inject_error("sign_reset") {
             return Err(error);
         }
 
         self.data_buffer.clear();
         Ok(())
+    }
+
+    fn supports_reset(&self) -> bool {
+        true
     }
 }

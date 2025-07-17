@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use aws_lc_rs::{signature, digest, agreement, aead};
+use aws_lc_rs::signature::KeyPair as AwsLcSignatureKeyPair;
 use vtok_backend::traits::{Key, KeyPair, Certificate};
 use vtok_backend::types::{
     BackendResult, BackendError, KeyAlgorithm, KeyType,
@@ -25,7 +26,7 @@ pub struct AwsLcKey {
 
 /// Internal key data representation
 #[derive(Debug, Clone)]
-enum KeyData {
+pub enum KeyData {
     /// RSA key pair
     RsaKeyPair(Arc<signature::RsaKeyPair>),
     /// RSA public key
@@ -217,7 +218,7 @@ impl Key for AwsLcKey {
             KeyData::RsaPublicKey(components) => {
                 // Export as DER-encoded SubjectPublicKeyInfo
                 // This is a simplified implementation
-                Ok(components.n().to_vec())
+                Ok(components.n.to_vec())
             }
             KeyData::EcdsaPublicKey(der) => Ok(der.clone()),
             KeyData::Ed25519PublicKey(bytes) => Ok(bytes.clone()),
@@ -229,10 +230,12 @@ impl Key for AwsLcKey {
         match &self.key_data {
             KeyData::RsaKeyPair(kp) => {
                 let public_key = kp.public_key();
-                Ok(public_key.n().to_vec())
+                // For RSA keys, we need to extract the modulus from the public key
+                // This is a simplified approach - in practice you'd want proper DER encoding
+                Ok(public_key.as_ref().to_vec())
             }
             KeyData::RsaPublicKey(components) => {
-                Ok(components.n().to_vec())
+                Ok(components.n.to_vec())
             }
             KeyData::EcdsaKeyPair(kp) => {
                 Ok(kp.public_key().as_ref().to_vec())
@@ -243,7 +246,7 @@ impl Key for AwsLcKey {
             }
             KeyData::Ed25519PublicKey(bytes) => Ok(bytes.clone()),
             KeyData::SymmetricKey(_) => {
-                Err(BackendError::InvalidKeyType("Not an asymmetric key".to_string()))
+                Err(BackendError::InvalidKeyData("Not an asymmetric key".to_string()))
             }
         }
     }

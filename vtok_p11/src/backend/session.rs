@@ -206,7 +206,7 @@ impl Session {
         self.encrypt_ctx = Some(if mech.is_multipart() {
             return Err(Error::MechanismInvalid);
         } else {
-            Box::new(crate::bridge::crypto::DirectEncryptCtx::new(mech, key).map_err(Error::CryptoError)?)
+            Box::new(crate::bridge::crypto::DirectEncryptCtx::new(mech, key).map_err(|e| Error::CryptoError(e))?)
         });
         Ok(())
     }
@@ -223,7 +223,7 @@ impl Session {
         self.decrypt_ctx = Some(if mech.is_multipart() {
             return Err(Error::MechanismInvalid);
         } else {
-            Box::new(crate::bridge::crypto::DirectDecryptCtx::new(mech, key).map_err(Error::CryptoError)?)
+            Box::new(crate::bridge::crypto::DirectDecryptCtx::new(mech, key).map_err(|e| Error::CryptoError(e))?)
         });
         Ok(())
     }

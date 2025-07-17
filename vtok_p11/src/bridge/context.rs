@@ -68,10 +68,10 @@ impl BridgeDigestContext {
             DigestAlgorithm::Sha3_256 => Ok(vec![0u8; 32]), // SHA3-256 produces 32 bytes
             DigestAlgorithm::Sha3_384 => Ok(vec![0u8; 48]), // SHA3-384 produces 48 bytes
             DigestAlgorithm::Sha3_512 => Ok(vec![0u8; 64]), // SHA3-512 produces 64 bytes
-            DigestAlgorithm::Shake128 => Ok(vec![0u8; 32]), // SHAKE128 variable length, default 32
-            DigestAlgorithm::Shake256 => Ok(vec![0u8; 64]), // SHAKE256 variable length, default 64
-            DigestAlgorithm::Blake2b => Ok(vec![0u8; 64]), // BLAKE2b produces 64 bytes
-            DigestAlgorithm::Blake2s => Ok(vec![0u8; 32]), // BLAKE2s produces 32 bytes
+            DigestAlgorithm::Blake2b512 => Ok(vec![0u8; 64]), // BLAKE2b-512 produces 64 bytes
+            DigestAlgorithm::Blake2b256 => Ok(vec![0u8; 32]), // BLAKE2b-256 produces 32 bytes
+            DigestAlgorithm::Blake2s256 => Ok(vec![0u8; 32]), // BLAKE2s-256 produces 32 bytes
+            DigestAlgorithm::Md5 => Ok(vec![0u8; 16]), // MD5 produces 16 bytes
         }
     }
 
@@ -98,6 +98,27 @@ impl BridgeDigestContext {
             _ => Err(vtok_backend::types::BackendError::InvalidState(
                 format!("Cannot transition from {:?} to {:?}", self.state, new_state)
             )),
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        // Return the digest length based on the algorithm
+        match self.algorithm {
+            DigestAlgorithm::Sha256 => 32,
+            DigestAlgorithm::Sha1 => 20,
+            DigestAlgorithm::Sha224 => 28,
+            DigestAlgorithm::Sha384 => 48,
+            DigestAlgorithm::Sha512 => 64,
+            DigestAlgorithm::Sha512_224 => 28,
+            DigestAlgorithm::Sha512_256 => 32,
+            DigestAlgorithm::Sha3_224 => 28,
+            DigestAlgorithm::Sha3_256 => 32,
+            DigestAlgorithm::Sha3_384 => 48,
+            DigestAlgorithm::Sha3_512 => 64,
+            DigestAlgorithm::Blake2b512 => 64,
+            DigestAlgorithm::Blake2b256 => 32,
+            DigestAlgorithm::Blake2s256 => 32,
+            DigestAlgorithm::Md5 => 16,
         }
     }
 }
@@ -191,6 +212,7 @@ impl BridgeSignContext {
             )),
         }
     }
+
 }
 
 /// Bridge verify context that manages verification operations

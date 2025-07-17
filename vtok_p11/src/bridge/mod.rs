@@ -18,6 +18,20 @@ pub use sync_wrapper::*;
 use vtok_backend::types::{BackendError, BackendResult};
 use crate::pkcs11;
 use crate::Error;
+use crate::bridge::crypto::CryptoError;
+
+impl From<CryptoError> for BackendError {
+    fn from(err: CryptoError) -> Self {
+        match err {
+            CryptoError::DataMissing => BackendError::InvalidDataLength("Data missing".to_string()),
+            CryptoError::OperationActive => BackendError::OperationActive,
+            CryptoError::DigestVerifyFinal => BackendError::VerifyOperation("Digest verify final failed".to_string()),
+            CryptoError::DigestVerify => BackendError::VerifyOperation("Digest verify failed".to_string()),
+            CryptoError::DirectVerify => BackendError::VerifyOperation("Direct verify failed".to_string()),
+            _ => BackendError::General("Crypto error".to_string()),
+        }
+    }
+}
 
 /// Convert a BackendError to a PKCS#11 Error
 pub fn backend_error_to_p11_error(err: BackendError) -> Error {
