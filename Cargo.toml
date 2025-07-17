@@ -1,0 +1,9 @@
+# Copyright 2020-2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+[workspace]
+members = ["src/vtok_common", "src/vtok_p11"]
+default-members = ["src/vtok_common", "src/vtok_p11",]
+
+[profile.release]
+codegen-units=1
