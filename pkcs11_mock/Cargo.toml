@@ -1,0 +1,7 @@
+[package]
+name = "pkcs11_mock"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+vtok_p11_trait = { path = "../vtok_p11_trait" }

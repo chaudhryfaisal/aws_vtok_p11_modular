@@ -1,0 +1,10 @@
+[package]
+name = "pkcs11_aws_lc"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+vtok_p11_trait = { path = "../vtok_p11_trait" }
+aws-lc-rs = "1.5.1"
+vtok_common = { path = "../vtok_common" }
+log = "0.4"

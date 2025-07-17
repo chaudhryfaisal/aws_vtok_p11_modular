@@ -1,0 +1,22 @@
+[package]
+name = "vtok_p11"
+version = "0.1.0"
+authors = ["The AWS Nitro Enclaves Team <aws-nitro-enclaves-devel@amazon.com>"]
+edition = "2021"
+description = "Nitro vToken pkcs#11 library"
+
+[lib]
+name = "vtok_p11"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+libc = "0.2"
+lazy_static = "1.4.0"
+serde = {version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+vtok_common = { path = "../vtok_common", version = "0.1.0" }
+vtok_p11_trait = { path = "../vtok_p11_trait", version = "0.1.0" }
+
+[dependencies.log]
+version = "0.4.20"
+features = ["std"]
