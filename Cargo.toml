@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 [workspace]
-members = ["src/vtok_common", "src/vtok_p11"]
-default-members = ["src/vtok_common", "src/vtok_p11",]
+members = ["vtok_common", "vtok_p11"]
+# default-members = ["src/vtok_common", "src/vtok_p11",]
 
-[profile.release]
-codegen-units=1
+# [profile.release]
+# codegen-units=1
