@@ -1,3 +1,7 @@
+build:
+	cargo build
+clean:
+	cargo clean
 aws-lc:
 	@set -e; \
 	echo "Installing dependencies..."; \
